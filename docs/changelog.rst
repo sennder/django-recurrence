@@ -1,14 +1,68 @@
 Changelog
 =========
 
-1.7.0 (Pending)
----------------
+1.10.0
+------
 
+* Fixes and official support for Django 2.1 and 2.2 (:issue:`143`,
+  :issue:`142`);
+* Remove support for Python 2.7 and 3.5, remove support for Django
+  2.0 (:issue:`145`).
+
+1.9.0
+-----
+
+* Fix for using the recurrence widget in admin inlines
+  (:issue:`137`).
+
+1.8.2
+-----
+
+* Minor fix for Django 2.0 (:issue:`134`);
+* Minor packaging fix (:issue:`135`).
+
+1.8.1
+-----
+
+* Bad release, do not use.
+
+1.8.0
+-----
+
+This release contains two backwards incompatible changes -
+please read the notes below for details.
+
+* django-recurrence now returns timezone aware ``datetime`` objects
+  in most cases (:issue:`130`). If ``USE_TZ`` is ``True`` (it
+  defaults to off with a stock Django install) then you'll now get
+  timezone aware ``datetime`` objects back from django-recurrence. If
+  you have ``USE_TZ`` as ``True``, and you don't want this behaviour,
+  you can set ``RECURRENCE_USE_TZ`` to ``False``, but please let us
+  know (via GitHub issues) that you wanted to opt out, so we can
+  understand what your use case is.
+* ``RecurrenceField`` instances without ``required=False`` will now
+  require at least one rule or date. This change is intended to bring
+  django-recurrence into line with how custom fields should
+  behave. If you don't want to require at least one rule or date,
+  just set ``require=False`` on your field (:issue:`133`).
+* Improvements to avoid inline styles (:issue:`85`);
+* Handle changes to ``javascript_catalog`` in Django 2
+  (:issue:`131`).
+
+
+1.7.0
+-----
+
+* Drop official support for Django versions 1.7, 1.8, 1.9, 1.10;
 * Fixes for saving ``None`` into a ``RecurrenceField`` causing a
   ``TypeError`` (:issue:`89`, :issue:`122`);
 * Drop official support for Python 3.3 and Python 3.4;
 * Provisional support for Python 3.7 (only for Django 2.0 and up);
-* Drop official support for Django versions 1.7, 1.8, 1.9, 1.10.
+* Ensure use of ``render`` on Django widgets always passes the
+  ``renderer`` argument, to ensure support for Django 2.1
+  (:issue:`125`);
+* Django 2.0 compatibility fix for usage of django-recurrence with
+  Django REST framework (:issue:`126`).
 
 1.6.0
 -----

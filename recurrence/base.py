@@ -16,12 +16,10 @@ import calendar
 import pytz
 import dateutil.rrule
 from django.utils import dateformat, timezone
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext as _, pgettext as _p
-from django.utils.six import string_types
 
 from recurrence import exceptions
-
+from recurrence import settings
 
 YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY = range(7)
 
@@ -33,7 +31,7 @@ def localtz():
     return timezone.get_current_timezone()
 
 
-class Rule(object):
+class Rule:
     """
     A recurrence rule.
 
@@ -244,8 +242,7 @@ class Rule(object):
             cache=cache, **kwargs)
 
 
-@python_2_unicode_compatible
-class Recurrence(object):
+class Recurrence:
     """
     A combination of `Rule` and `datetime.datetime` instances.
 
@@ -589,7 +586,7 @@ class Recurrence(object):
         return rruleset
 
 
-class Weekday(object):
+class Weekday:
     """
     Representation of a weekday.
 
@@ -679,11 +676,11 @@ def to_weekday(token):
         return WEEKDAYS[token]
     elif not token:
         raise ValueError
-    elif isinstance(token, string_types) and token.isdigit():
+    elif isinstance(token, str) and token.isdigit():
         if int(token) > 6:
             raise ValueError
         return WEEKDAYS[int(token)]
-    elif isinstance(token, string_types):
+    elif isinstance(token, str):
         const = token[-2:].upper()
         if const not in Rule.weekdays:
             raise ValueError
@@ -961,6 +958,18 @@ def deserialize(text, include_dtstart=True):
         A `Recurrence` instance.
     """
     def deserialize_dt(text):
+        """
+        Deserialize a rfc2445 text to a datetime.
+
+        The setting RECURRENCE_USE_TZ determines if a naive or
+        timezone aware datetime is returned.
+
+        If this setting is not present the setting USE_TZ is used
+        as a default.
+
+        This setting is accessed via the `.settings.deserialize_tz`
+        function.
+        """
         try:
             year, month, day = int(text[:4]), int(text[4:6]), int(text[6:8])
         except ValueError:
@@ -986,6 +995,10 @@ def deserialize(text, include_dtstart=True):
 
         dt = datetime.datetime(
             year, month, day, hour, minute, second, tzinfo=tzinfo)
+
+        if settings.deserialize_tz():
+            return dt
+
         dt = dt.astimezone(localtz())
 
         # set tz to settings.TIME_ZONE and return offset-naive datetime

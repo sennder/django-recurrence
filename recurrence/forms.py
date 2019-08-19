@@ -1,54 +1,30 @@
-from django import forms
+from django import forms, urls
 from django.conf import settings
 from django.views import i18n
-from django.utils import safestring
-from django.utils.translation import ugettext_lazy as _, get_language
+from django.utils.translation import ugettext_lazy as _
 from django.contrib.staticfiles.storage import staticfiles_storage
-
-try:
-    from django import urls
-except ImportError:
-    from django.core import urlresolvers as urls
 
 import recurrence
 from recurrence import exceptions
 
-# Django 1.5+ compatibility
-try:
-    import json
-except ImportError:
-    import django.utils.simplejson as json
-
 
 class RecurrenceWidget(forms.Textarea):
+
     def __init__(self, attrs=None, **kwargs):
         self.js_widget_options = kwargs
         defaults = {'class': 'recurrence-widget'}
         if attrs is not None:
             defaults.update(attrs)
-        super(RecurrenceWidget, self).__init__(defaults)
-
-    def render(self, name, value, attrs=None):
-        if value is None:
-            value = ''
-        elif isinstance(value, recurrence.Recurrence):
-            value = recurrence.serialize(value)
-
-        widget_init_js = (
-            '<script type="text/javascript">'
-            'recurrence.language_code =\'%s\';'
-            'new recurrence.widget.Widget(\'%s\', %s);'
-            '</script>'
-        ) % (get_language(), attrs['id'], json.dumps(self.js_widget_options))
-
-        return safestring.mark_safe(u'%s\n%s' % (
-            super(RecurrenceWidget, self).render(name, value, attrs),
-            widget_init_js))
+        super().__init__(defaults)
 
     def get_media(self):
+        extra = '' if settings.DEBUG else '.min'
         js = [
+            'admin/js/vendor/jquery/jquery%s.js' % extra,
+            'admin/js/jquery.init.js',
             staticfiles_storage.url('recurrence/js/recurrence.js'),
             staticfiles_storage.url('recurrence/js/recurrence-widget.js'),
+            staticfiles_storage.url('recurrence/js/recurrence-widget.init.js'),
         ]
         i18n_media = find_recurrence_i18n_js_catalog()
         if i18n_media:
@@ -82,6 +58,8 @@ class RecurrenceField(forms.CharField):
             u'Max dates exceeded. The limit is %(limit)s'),
         'max_exdates_exceeded': _(
             u'Max exclusion dates exceeded. The limit is %(limit)s'),
+        'recurrence_required': _(
+            u'This field is required. Set either a recurrence rule or date.'),
     }
 
     def __init__(
@@ -139,7 +117,7 @@ class RecurrenceField(forms.CharField):
                 recurrence.HOURLY, recurrence.MINUTELY,
                 recurrence.SECONDLY,
             )
-        super(RecurrenceField, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def clean(self, value):
         """
@@ -196,6 +174,12 @@ class RecurrenceField(forms.CharField):
                 raise forms.ValidationError(
                     self.error_messages['invalid_frequency'])
 
+        if self.required:
+            if not recurrence_obj.rrules and not recurrence_obj.rdates and not recurrence_obj.exdates and not recurrence_obj.exrules:
+                raise forms.ValidationError(
+                    self.error_messages['recurrence_required']
+                )
+
         return recurrence_obj
 
 
@@ -209,11 +193,12 @@ def find_recurrence_i18n_js_catalog():
         return _recurrence_javascript_catalog_url
 
     # first try to use the dynamic form of the javascript_catalog view
-    try:
-        return urls.reverse(
-            i18n.javascript_catalog, kwargs={'packages': 'recurrence'})
-    except urls.NoReverseMatch:
-        pass
+    if hasattr(i18n, 'javascript_catalog'):
+        try:
+            return urls.reverse(
+                i18n.javascript_catalog, kwargs={'packages': 'recurrence'})
+        except urls.NoReverseMatch:
+            pass
 
     # then scan the entire urlconf for a javascript_catalague pattern
     # that manually selects recurrence as one of the packages to include
@@ -223,7 +208,7 @@ def find_recurrence_i18n_js_catalog():
                 match = check_urlpatterns(pattern.url_patterns)
                 if match:
                     return match
-            elif (pattern.callback == i18n.javascript_catalog and
+            elif (hasattr(i18n, 'javascript_catalog') and pattern.callback == i18n.javascript_catalog and
                   'recurrence' in pattern.default_args.get('packages', [])):
                 if pattern.name:
                     return urls.reverse(pattern.name)
